@@ -1,49 +1,16 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, Suspense, lazy } from 'react';
 import { useCountdown } from './hooks/useCountdown';
-import { CountdownDisplay } from './components/CountdownDisplay';
-import { CircularGallery } from './components/CircularGallery';
 import { GalleryImage } from './types';
-import { Eye, EyeOff, Upload, Music, Image as ImageIcon, PlayCircle, Volume2, VolumeX } from 'lucide-react';
+import { Upload, Music, Image as ImageIcon, PlayCircle, Volume2, VolumeX, Loader2, Eye, EyeOff } from 'lucide-react';
 
-// Component for the Golden Light Fireworks
-const GoldenFireworks = () => {
-  // Create stable random values for the particles
-  const particles = useMemo(() => {
-    return Array.from({ length: 30 }).map((_, i) => ({
-      id: i,
-      top: `${Math.random() * 100}%`, // Random vertical position
-      delay: `${Math.random() * 5}s`, // Random start time
-      duration: `${3 + Math.random() * 4}s`, // Random speed
-      scale: 0.5 + Math.random(), // Random size
-      opacity: 0.4 + Math.random() * 0.6
-    }));
-  }, []);
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
-      {particles.map((p) => (
-        <div
-          key={p.id}
-          className="absolute left-0 w-2 h-2 rounded-full bg-amber-300 shadow-[0_0_15px_4px_rgba(251,191,36,0.6)] animate-gold-drift"
-          style={{
-            top: p.top,
-            animationDelay: p.delay,
-            animationDuration: p.duration,
-            opacity: p.opacity,
-            transform: `scale(${p.scale})`
-          }}
-        >
-          {/* Add a trail effect */}
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-0.5 bg-gradient-to-r from-transparent to-amber-400/50 -translate-x-full" />
-        </div>
-      ))}
-    </div>
-  );
-};
+// Lazy Load Components
+// Using named import pattern for CircularGallery and CountdownDisplay
+const CircularGallery = lazy(() => import('./components/CircularGallery').then(module => ({ default: module.CircularGallery })));
+const CountdownDisplay = lazy(() => import('./components/CountdownDisplay').then(module => ({ default: module.CountdownDisplay })));
+const GoldenFireworks = lazy(() => import('./components/GoldenFireworks'));
 
 const App: React.FC = () => {
   const timeLeft = useCountdown();
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
   
   // State for user uploads
   const [userImages, setUserImages] = useState<GalleryImage[]>([]);
@@ -51,6 +18,7 @@ const App: React.FC = () => {
   const [musicName, setMusicName] = useState<string>("");
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   // Audio Reference
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -58,17 +26,13 @@ const App: React.FC = () => {
   // Celebration triggers if time is up OR preview mode is active
   const isCelebrationTime = (timeLeft.isComplete || isPreviewMode) && isSetupComplete;
 
-  const togglePreview = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsPreviewMode(prev => !prev);
-  };
-
   // Handle Image Uploads
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
       // Convert FileList to Array and create Blob URLs
-      const newImages: GalleryImage[] = Array.from(files).slice(0, 11).map((file, index) => ({
+      // Explicitly typing file as any to avoid TS unknown inference issues with Array.from(FileList)
+      const newImages: GalleryImage[] = Array.from(files).slice(0, 11).map((file: any, index) => ({
         id: index,
         url: URL.createObjectURL(file),
         alt: file.name
@@ -111,6 +75,11 @@ const App: React.FC = () => {
       audioRef.current.play();
     }
     setIsPlaying(!isPlaying);
+  };
+
+  // Toggle Preview Mode
+  const togglePreview = () => {
+    setIsPreviewMode(!isPreviewMode);
   };
 
   // ---------------------------------------------------------------------------
@@ -241,10 +210,27 @@ const App: React.FC = () => {
       </div>
 
       {/* Golden Fireworks Background (Celebration Only) */}
-      {isCelebrationTime && <GoldenFireworks />}
+      {isCelebrationTime && (
+        <Suspense fallback={null}>
+          <GoldenFireworks />
+        </Suspense>
+      )}
 
       {/* Top Controls */}
       <div className="absolute top-4 right-4 z-40 flex gap-3">
+        {/* Preview Toggle Button */}
+        <button
+          onClick={togglePreview}
+          className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-white/60 hover:bg-white/10 hover:text-white transition-all cursor-pointer group backdrop-blur-md"
+          title={isPreviewMode ? "Exit Preview" : "Preview Celebration"}
+        >
+          {isPreviewMode ? <EyeOff size={14} /> : <Eye size={14} />}
+          <span className="text-xs font-medium hidden md:block">
+            {isPreviewMode ? "Exit Preview" : "Preview"}
+          </span>
+        </button>
+
+        {/* Audio Toggle Button */}
         {bgMusic && (
           <button
             onClick={toggleAudio}
@@ -255,17 +241,6 @@ const App: React.FC = () => {
             <span className="text-xs font-medium max-w-[100px] truncate hidden md:block">{musicName}</span>
           </button>
         )}
-        <button
-          onClick={togglePreview}
-          className={`flex items-center gap-2 px-4 py-2 border rounded-full text-xs font-medium transition-all backdrop-blur-md ${
-            isPreviewMode 
-              ? 'bg-[#eb6b40]/20 border-[#eb6b40] text-[#f0a3bc] shadow-[0_0_15px_rgba(235,107,64,0.3)]' 
-              : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
-          }`}
-        >
-          {isPreviewMode ? <EyeOff size={14} /> : <Eye size={14} />}
-          {isPreviewMode ? 'Exit Preview' : 'Preview Celebration'}
-        </button>
       </div>
 
       {/* Main Display Logic */}
@@ -279,10 +254,22 @@ const App: React.FC = () => {
                 2026
               </h2>
           </div>
-          <CountdownDisplay time={timeLeft} />
+          <Suspense fallback={
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="animate-spin text-white/50 w-8 h-8" />
+            </div>
+          }>
+            <CountdownDisplay time={timeLeft} />
+          </Suspense>
         </div>
       ) : (
-        <CircularGallery images={userImages} />
+        <Suspense fallback={
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="animate-spin text-white w-12 h-12" />
+          </div>
+        }>
+          <CircularGallery images={userImages} />
+        </Suspense>
       )}
 
       {/* Footer */}
