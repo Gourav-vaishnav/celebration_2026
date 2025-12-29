@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>New Year 2026 Countdown</title>
+    <meta name="description" content="A glassmorphic New Year 2026 countdown with a circular image gallery celebration trigger." />
+    <script>
+      // Suppress Tailwind CDN production warning for cleaner console in preview environment
+      (function() {
+        var originalWarn = console.warn;
+        console.warn = function(...args) {
+          if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+          originalWarn.apply(console, args);
+        };
+      })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /* Organic floating animations */
