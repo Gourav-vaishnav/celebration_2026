@@ -1,7 +1,7 @@
-import React, { useState, useRef, Suspense, lazy } from 'react';
+import React, { useState, useRef, Suspense, lazy, useEffect } from 'react';
 import { useCountdown } from './hooks/useCountdown';
-import { GalleryImage } from './types';
-import { Upload, Music, Image as ImageIcon, PlayCircle, Volume2, VolumeX, Loader2, Eye, EyeOff } from 'lucide-react';
+import { GalleryItem } from './types';
+import { Upload, Music, Image as ImageIcon, PlayCircle, Volume2, VolumeX, Loader2, Eye, EyeOff, Film } from 'lucide-react';
 
 // Lazy Load Components
 // Using named import pattern for CircularGallery and CountdownDisplay
@@ -13,12 +13,15 @@ const App: React.FC = () => {
   const timeLeft = useCountdown();
   
   // State for user uploads
-  const [userImages, setUserImages] = useState<GalleryImage[]>([]);
+  const [userMedia, setUserMedia] = useState<GalleryItem[]>([]);
   const [bgMusic, setBgMusic] = useState<string | null>(null);
   const [musicName, setMusicName] = useState<string>("");
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  
+  // Special Message State
+  const [showLoveMessage, setShowLoveMessage] = useState(false);
 
   // Audio Reference
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -26,18 +29,31 @@ const App: React.FC = () => {
   // Celebration triggers if time is up OR preview mode is active
   const isCelebrationTime = (timeLeft.isComplete || isPreviewMode) && isSetupComplete;
 
-  // Handle Image Uploads
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Effect to trigger the special message when celebration starts
+  useEffect(() => {
+    if (isCelebrationTime) {
+      setShowLoveMessage(true);
+      const timer = setTimeout(() => {
+        setShowLoveMessage(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoveMessage(false);
+    }
+  }, [isCelebrationTime]);
+
+  // Handle Media Uploads (Images & Videos)
+  const handleMediaUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files && files.length > 0) {
       // Convert FileList to Array and create Blob URLs
-      // Explicitly typing file as any to avoid TS unknown inference issues with Array.from(FileList)
-      const newImages: GalleryImage[] = Array.from(files).slice(0, 11).map((file: any, index) => ({
+      const newItems: GalleryItem[] = Array.from(files).slice(0, 30).map((file: any, index) => ({
         id: index,
         url: URL.createObjectURL(file),
+        type: file.type.startsWith('video') ? 'video' : 'image',
         alt: file.name
       }));
-      setUserImages(newImages);
+      setUserMedia(newItems);
     }
   };
 
@@ -52,7 +68,7 @@ const App: React.FC = () => {
 
   // Start the App
   const handleStart = () => {
-    if (userImages.length > 0) {
+    if (userMedia.length > 0) {
       setIsSetupComplete(true);
       // Attempt to play audio immediately after user interaction to satisfy browser autoplay policies
       setTimeout(() => {
@@ -98,21 +114,24 @@ const App: React.FC = () => {
           </div>
 
           <div className="space-y-6">
-            {/* Image Upload Section */}
-            <div className={`p-6 rounded-2xl border transition-all ${userImages.length > 0 ? 'bg-[#70be51]/20 border-[#70be51]/50' : 'bg-white/5 border-white/10'}`}>
+            {/* Media Upload Section */}
+            <div className={`p-6 rounded-2xl border transition-all ${userMedia.length > 0 ? 'bg-[#70be51]/20 border-[#70be51]/50' : 'bg-white/5 border-white/10'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-[#397754]/40 rounded-lg text-[#70be51]">
-                    <ImageIcon size={24} />
+                    <div className="flex gap-1">
+                      <ImageIcon size={20} />
+                      <Film size={20} />
+                    </div>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">1. Select Photos</h3>
-                    <p className="text-xs text-white/60">Choose your 11 favorite memories</p>
+                    <h3 className="font-semibold text-lg">1. Select Media</h3>
+                    <p className="text-xs text-white/60">Choose up to 30 photos or videos</p>
                   </div>
                 </div>
-                {userImages.length > 0 && (
+                {userMedia.length > 0 && (
                   <span className="text-xs font-bold text-[#397754] bg-[#70be51] px-2 py-1 rounded-full">
-                    {userImages.length} Selected
+                    {userMedia.length} Selected
                   </span>
                 )}
               </div>
@@ -120,14 +139,14 @@ const App: React.FC = () => {
               <label className="flex items-center justify-center w-full h-12 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl cursor-pointer transition-all group">
                 <span className="flex items-center gap-2 text-sm font-medium text-white/80 group-hover:text-white">
                   <Upload size={16} />
-                  {userImages.length > 0 ? 'Change Photos' : 'Upload Images'}
+                  {userMedia.length > 0 ? 'Change Media' : 'Upload Photos/Videos'}
                 </span>
                 <input 
                   type="file" 
                   multiple 
-                  accept="image/*" 
+                  accept="image/*,video/*" 
                   className="hidden" 
-                  onChange={handleImageUpload}
+                  onChange={handleMediaUpload}
                 />
               </label>
             </div>
@@ -169,9 +188,9 @@ const App: React.FC = () => {
             {/* Start Button */}
             <button
               onClick={handleStart}
-              disabled={userImages.length === 0}
+              disabled={userMedia.length === 0}
               className={`w-full py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg ${
-                userImages.length > 0
+                userMedia.length > 0
                   ? 'bg-gradient-to-r from-[#eb6b40] to-[#9b45b2] hover:scale-[1.02] hover:shadow-[#eb6b40]/50 text-white'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
               }`}
@@ -201,6 +220,15 @@ const App: React.FC = () => {
           autoPlay 
           className="hidden" 
         />
+      )}
+
+      {/* Special Message Overlay */}
+      {showLoveMessage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none animate-in fade-in zoom-in duration-700">
+             <h1 className="text-5xl md:text-8xl font-black text-center text-transparent bg-clip-text bg-gradient-to-r from-[#f0a3bc] via-white to-[#eb6b40] drop-shadow-[0_0_30px_rgba(235,107,64,0.8)] scale-110 animate-pulse tracking-tighter px-4 leading-tight">
+              I LOVE YOU<br/>JAANU
+            </h1>
+        </div>
       )}
 
       {/* Ambient Background Effects */}
@@ -268,7 +296,7 @@ const App: React.FC = () => {
             <Loader2 className="animate-spin text-white w-12 h-12" />
           </div>
         }>
-          <CircularGallery images={userImages} />
+          <CircularGallery items={userMedia} />
         </Suspense>
       )}
 

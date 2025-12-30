@@ -6,8 +6,9 @@ export interface TimeLeft {
   isComplete: boolean;
 }
 
-export interface GalleryImage {
+export interface GalleryItem {
   id: number;
   url: string;
+  type: 'image' | 'video';
   alt: string;
 }
