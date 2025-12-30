@@ -20,17 +20,19 @@ const GalleryMedia: React.FC<{
     >
       <div className={`w-full h-full rounded-2xl overflow-hidden border-2 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-sm transition-all duration-300 relative ${
         hasError 
-          ? 'bg-red-900/40 border-red-500/50 flex flex-col items-center justify-center text-center p-2' 
+          ? 'bg-red-950/80 border-red-500/50' 
           : 'bg-white/5 border-white/20 group-hover:border-white/40 group-hover:shadow-[0_8px_32px_rgba(255,255,255,0.2)]'
       }`}>
         {hasError ? (
-          <>
-            <ImageOff className="w-8 h-8 text-red-300 mb-1" />
-            <span className="text-[10px] text-red-200 font-mono break-all leading-tight">
-              Error:<br/>
-              {item.url.split('/').pop()}
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center">
+            <ImageOff className="w-8 h-8 text-red-400 mb-2 opacity-80" />
+            <span className="text-[10px] font-bold text-red-300 uppercase tracking-wider mb-1">
+              Media Error
             </span>
-          </>
+            <span className="text-[9px] text-red-200/70 font-mono break-all leading-tight line-clamp-3">
+              {item.alt || "Unknown File"}
+            </span>
+          </div>
         ) : (
           <>
             {item.type === 'video' ? (
@@ -168,7 +170,8 @@ export const CircularGallery: React.FC<CircularGalleryProps> = ({ items }) => {
               <video 
                 src={selectedItem.url} 
                 controls 
-                autoPlay 
+                autoPlay
+                muted 
                 className="w-full h-full object-contain"
               />
             ) : (

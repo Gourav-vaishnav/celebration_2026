@@ -38,6 +38,30 @@ const App: React.FC = () => {
   const isCelebrationTime = (timeLeft.isComplete || isPreviewMode) && isSetupComplete;
 
   // ---------------------------------------------------------------------------
+  // AUDIO CONTROLLER
+  // ---------------------------------------------------------------------------
+  // Handle automatic audio start/stop based on celebration state
+  useEffect(() => {
+    if (!audioRef.current || !bgMusic) return;
+
+    if (isCelebrationTime) {
+      // Condition 1 & 2: Start song when clock hits 0 OR Preview is pressed
+      audioRef.current.currentTime = 0;
+      const playPromise = audioRef.current.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => setIsPlaying(true))
+          .catch(error => console.log("Audio autoplay prevented:", error));
+      }
+    } else {
+      // Stop song if celebration ends (e.g. exit preview)
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, [isCelebrationTime, bgMusic]);
+
+  // ---------------------------------------------------------------------------
   // SEQUENCE CONTROLLER
   // ---------------------------------------------------------------------------
   useEffect(() => {
@@ -190,14 +214,21 @@ const App: React.FC = () => {
   const handleStart = () => {
     if (userMedia.length > 0) {
       setIsSetupComplete(true);
-      // Attempt to play audio immediately after user interaction to satisfy browser autoplay policies
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.play()
-            .then(() => setIsPlaying(true))
-            .catch(e => console.log("Audio autoplay prevented:", e));
+      
+      // "Prime" the audio context:
+      // Play and immediately pause the audio to unlock browser autoplay restrictions.
+      // This ensures that when the timer hits 0 or preview is clicked, we can play programmatically.
+      if (audioRef.current) {
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              audioRef.current?.pause();
+              audioRef.current!.currentTime = 0;
+            })
+            .catch(e => console.log("Audio unlock failed (will try again later):", e));
         }
-      }, 100);
+      }
     }
   };
 
@@ -337,7 +368,6 @@ const App: React.FC = () => {
           ref={audioRef}
           src={bgMusic} 
           loop 
-          autoPlay 
           className="hidden" 
         />
       )}
@@ -392,9 +422,8 @@ const App: React.FC = () => {
         {/* Preview Toggle Button */}
         <button
           onClick={togglePreview}
-          disabled={isRecording}
           className={`flex items-center gap-2 px-4 py-2 border rounded-full transition-all cursor-pointer group backdrop-blur-md ${
-            isRecording ? 'opacity-50 cursor-not-allowed bg-white/5 border-white/10' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+            isPreviewMode ? 'bg-white/20 border-white/40 text-white shadow-lg shadow-white/10' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
           }`}
           title={isPreviewMode ? "Exit Preview" : "Preview Celebration"}
         >
