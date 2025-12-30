@@ -1,7 +1,7 @@
 import React, { useState, useRef, Suspense, lazy, useEffect } from 'react';
 import { useCountdown } from './hooks/useCountdown';
 import { GalleryItem } from './types';
-import { Upload, Music, Image as ImageIcon, PlayCircle, Volume2, VolumeX, Loader2, Eye, EyeOff, Film, Download, Square, Video } from 'lucide-react';
+import { Upload, Music, Image as ImageIcon, PlayCircle, Volume2, VolumeX, Loader2, Eye, EyeOff, Film, Download, Square, Video, MessageSquare } from 'lucide-react';
 
 // Lazy Load Components
 // Using named import pattern for CircularGallery and CountdownDisplay
@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [userMedia, setUserMedia] = useState<GalleryItem[]>([]);
   const [bgMusic, setBgMusic] = useState<string | null>(null);
   const [musicName, setMusicName] = useState<string>("");
+  const [customMessage, setCustomMessage] = useState<string>("I LOVE YOU\nJAANU");
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -254,8 +255,8 @@ const App: React.FC = () => {
   // ---------------------------------------------------------------------------
   if (!isSetupComplete) {
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#397754] via-[#9b45b2] to-[#eb6b40] text-white p-4 font-sans">
-        <div className="max-w-xl w-full bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in duration-500">
+      <div className="fixed inset-0 w-full h-full flex flex-col items-center overflow-y-auto bg-gradient-to-br from-[#397754] via-[#9b45b2] to-[#eb6b40] text-white p-4 font-sans">
+        <div className="max-w-xl w-full bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in duration-500 my-auto">
           
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#f0a3bc] to-[#eb6b40] mb-2">
@@ -336,6 +337,28 @@ const App: React.FC = () => {
               {musicName && <p className="text-center text-xs text-white/60 mt-2 truncate">{musicName}</p>}
             </div>
 
+            {/* Custom Message Section */}
+            <div className={`p-6 rounded-2xl border transition-all ${customMessage ? 'bg-[#eb6b40]/20 border-[#eb6b40]/50' : 'bg-white/5 border-white/10'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-[#eb6b40]/40 rounded-lg text-[#ffccbc]">
+                    <MessageSquare size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">3. Celebration Message</h3>
+                    <p className="text-xs text-white/60">Message shown when clock hits zero</p>
+                  </div>
+                </div>
+              </div>
+              
+              <textarea
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                placeholder="Enter your message here..."
+                className="w-full h-24 bg-white/10 border border-white/20 rounded-xl p-3 text-white placeholder-white/40 focus:outline-none focus:border-[#eb6b40] focus:ring-1 focus:ring-[#eb6b40] transition-all resize-none text-center font-bold"
+              />
+            </div>
+
             {/* Start Button */}
             <button
               onClick={handleStart}
@@ -375,8 +398,8 @@ const App: React.FC = () => {
       {/* Special Message Overlay */}
       {showLoveMessage && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none animate-in fade-in zoom-in duration-700">
-             <h1 className="text-5xl md:text-8xl font-black text-center text-transparent bg-clip-text bg-gradient-to-r from-[#f0a3bc] via-white to-[#eb6b40] drop-shadow-[0_0_30px_rgba(235,107,64,0.8)] scale-110 animate-pulse tracking-tighter px-4 leading-tight">
-              I LOVE YOU<br/>JAANU
+             <h1 className="text-5xl md:text-8xl font-black text-center text-transparent bg-clip-text bg-gradient-to-r from-[#f0a3bc] via-white to-[#eb6b40] drop-shadow-[0_0_30px_rgba(235,107,64,0.8)] scale-110 animate-pulse tracking-tighter px-4 leading-tight whitespace-pre-line">
+              {customMessage}
             </h1>
         </div>
       )}
