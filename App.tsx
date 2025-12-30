@@ -1,7 +1,7 @@
 import React, { useState, useRef, Suspense, lazy, useEffect } from 'react';
 import { useCountdown } from './hooks/useCountdown';
 import { GalleryItem } from './types';
-import { Upload, Music, Image as ImageIcon, PlayCircle, Volume2, VolumeX, Loader2, Eye, EyeOff, Film } from 'lucide-react';
+import { Upload, Music, Image as ImageIcon, PlayCircle, Volume2, VolumeX, Loader2, Eye, EyeOff, Film, Download, Square, Video } from 'lucide-react';
 
 // Lazy Load Components
 // Using named import pattern for CircularGallery and CountdownDisplay
@@ -20,8 +20,16 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   
-  // Special Message State
+  // Sequence States
   const [showLoveMessage, setShowLoveMessage] = useState(false);
+  const [isSlideshowActive, setIsSlideshowActive] = useState(false);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [loopCount, setLoopCount] = useState(0);
+
+  // Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   // Audio Reference
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -29,18 +37,130 @@ const App: React.FC = () => {
   // Celebration triggers if time is up OR preview mode is active
   const isCelebrationTime = (timeLeft.isComplete || isPreviewMode) && isSetupComplete;
 
-  // Effect to trigger the special message when celebration starts
+  // ---------------------------------------------------------------------------
+  // SEQUENCE CONTROLLER
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (isCelebrationTime) {
-      setShowLoveMessage(true);
-      const timer = setTimeout(() => {
-        setShowLoveMessage(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    } else {
+    // Reset states if we exit celebration mode
+    if (!isCelebrationTime) {
       setShowLoveMessage(false);
+      setIsSlideshowActive(false);
+      setCurrentSlideIndex(0);
+      setLoopCount(0);
+      return;
     }
-  }, [isCelebrationTime]);
+
+    // Step 1: Show Love Message for 3 seconds
+    setShowLoveMessage(true);
+    
+    const messageTimer = setTimeout(() => {
+      setShowLoveMessage(false);
+      // Step 2: Start Slideshow after message disappears
+      if (userMedia.length > 0) {
+        setIsSlideshowActive(true);
+      }
+    }, 3000);
+
+    return () => clearTimeout(messageTimer);
+  }, [isCelebrationTime, userMedia.length]);
+
+  // ---------------------------------------------------------------------------
+  // SLIDESHOW LOGIC
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    let slideTimer: ReturnType<typeof setInterval>;
+
+    if (isSlideshowActive && userMedia.length > 0) {
+      slideTimer = setInterval(() => {
+        setCurrentSlideIndex((prevIndex) => {
+          const nextIndex = prevIndex + 1;
+          
+          // Check if we reached the end of the media list
+          if (nextIndex >= userMedia.length) {
+            // Check if we finished 1 loop (sequence runs once)
+            setLoopCount((prevLoop) => {
+              const newLoop = prevLoop + 1;
+              if (newLoop >= 1) {
+                // Sequence Complete: Stop slideshow, show Circular Gallery
+                setIsSlideshowActive(false);
+                return 0; 
+              }
+              return newLoop;
+            });
+            return 0; // Reset to first image for next loop
+          }
+          
+          return nextIndex;
+        });
+      }, 2000); // 2 Second Pause
+    }
+
+    return () => clearInterval(slideTimer);
+  }, [isSlideshowActive, userMedia.length]);
+
+  // ---------------------------------------------------------------------------
+  // RECORDING LOGIC
+  // ---------------------------------------------------------------------------
+  const handleStartRecording = async () => {
+    try {
+      // 1. Request Screen & Audio Permissions
+      // Note: 'system' audio capture availability depends on browser/OS (works best on Chrome/Edge on Desktop)
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: 'browser' },
+        audio: true // Request audio capture
+      });
+
+      // 2. Setup Media Recorder
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      mediaRecorderRef.current = mediaRecorder;
+      recordedChunksRef.current = [];
+
+      // 3. Handle Data Availability
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      // 4. Handle Stop Event (Download)
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        document.body.appendChild(a);
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `new-year-celebration-${Date.now()}.webm`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        // Stop all tracks to clear the red "recording" icon in browser tab
+        stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
+      };
+
+      // 5. Start Recording
+      mediaRecorder.start();
+      setIsRecording(true);
+
+      // Handle case where user stops recording via browser UI float bar
+      stream.getVideoTracks()[0].onended = () => {
+        if (mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+        }
+      };
+
+    } catch (err) {
+      console.error("Error starting screen recording:", err);
+      alert("Could not start recording. Please ensure you granted permission to share the screen and audio.");
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
 
   // Handle Media Uploads (Images & Videos)
   const handleMediaUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -245,11 +365,37 @@ const App: React.FC = () => {
       )}
 
       {/* Top Controls */}
-      <div className="absolute top-4 right-4 z-40 flex gap-3">
+      <div className="absolute top-4 right-4 z-40 flex gap-3 flex-wrap justify-end">
+        {/* Recording Toggle Button */}
+         <button
+          onClick={isRecording ? handleStopRecording : handleStartRecording}
+          className={`flex items-center gap-2 px-4 py-2 border rounded-full transition-all cursor-pointer group backdrop-blur-md ${
+            isRecording 
+              ? 'bg-red-500/20 border-red-500/50 text-red-200 hover:bg-red-500/30' 
+              : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+          }`}
+          title={isRecording ? "Stop Recording & Download" : "Record Celebration"}
+        >
+          {isRecording ? (
+            <>
+              <Square size={14} className="fill-current animate-pulse" />
+              <span className="text-xs font-medium hidden md:block">Stop</span>
+            </>
+          ) : (
+            <>
+              <Video size={14} />
+              <span className="text-xs font-medium hidden md:block">Record</span>
+            </>
+          )}
+        </button>
+
         {/* Preview Toggle Button */}
         <button
           onClick={togglePreview}
-          className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-white/60 hover:bg-white/10 hover:text-white transition-all cursor-pointer group backdrop-blur-md"
+          disabled={isRecording}
+          className={`flex items-center gap-2 px-4 py-2 border rounded-full transition-all cursor-pointer group backdrop-blur-md ${
+            isRecording ? 'opacity-50 cursor-not-allowed bg-white/5 border-white/10' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+          }`}
           title={isPreviewMode ? "Exit Preview" : "Preview Celebration"}
         >
           {isPreviewMode ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -271,8 +417,15 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Main Display Logic */}
+      {/* 
+        DISPLAY LOGIC:
+        1. Not Celebration -> Countdown
+        2. Celebration + Slideshow Active -> Slideshow
+        3. Celebration + Slideshow Done -> Circular Gallery
+      */}
+      
       {!isCelebrationTime ? (
+        // COUNTDOWN STATE
         <div className="relative z-10 flex flex-col items-center animate-in fade-in zoom-in duration-700">
           <h1 className="text-xl md:text-3xl font-light text-[#f0a3bc] mb-8 tracking-[0.5em] uppercase text-center opacity-90 drop-shadow-md">
             Counting Down To
@@ -290,7 +443,43 @@ const App: React.FC = () => {
             <CountdownDisplay time={timeLeft} />
           </Suspense>
         </div>
+      ) : isSlideshowActive && !showLoveMessage ? (
+        // SLIDESHOW STATE (Runs 1 loop)
+        <div className="relative z-20 w-full h-full flex items-center justify-center p-8">
+           <div className="relative w-full max-w-5xl aspect-video md:aspect-auto md:h-[80vh] bg-white/5 border border-white/20 rounded-3xl backdrop-blur-md shadow-2xl overflow-hidden flex items-center justify-center">
+              {userMedia.map((media, index) => {
+                if (index !== currentSlideIndex) return null;
+                return (
+                  <div key={`${media.id}-${loopCount}`} className="w-full h-full animate-slide-in-right">
+                    {media.type === 'video' ? (
+                       <video 
+                        src={media.url} 
+                        className="w-full h-full object-contain"
+                        preload="metadata"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                       />
+                    ) : (
+                      <img 
+                        src={media.url} 
+                        alt={media.alt} 
+                        loading="lazy"
+                        className="w-full h-full object-contain"
+                      />
+                    )}
+                    {/* Counter pill */}
+                    <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-mono text-white/70">
+                      {index + 1}/{userMedia.length}
+                    </div>
+                  </div>
+                )
+              })}
+           </div>
+        </div>
       ) : (
+        // DEFAULT CELEBRATION STATE (Circular Gallery)
         <Suspense fallback={
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="animate-spin text-white w-12 h-12" />

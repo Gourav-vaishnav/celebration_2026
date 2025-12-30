@@ -48,6 +48,18 @@
           filter: blur(0);
         }
       }
+
+      /* Slide In Animation for Slideshow */
+      @keyframes slide-in-right {
+        0% {
+          opacity: 0;
+          transform: translateX(-100%) scale(0.9);
+        }
+        100% {
+          opacity: 1;
+          transform: translateX(0) scale(1);
+        }
+      }
       
       /* Golden Fireworks / Streamers Animation */
       @keyframes gold-drift {
@@ -73,6 +85,10 @@
 
       .animate-enter-display {
         animation: enter-display 2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+
+      .animate-slide-in-right {
+        animation: slide-in-right 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
       }
       
       .animate-gold-drift {
